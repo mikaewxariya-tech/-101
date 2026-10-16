@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>สำรวจโลกและดวงจันทร์ 3D — วิทยาศาสตร์ ม.3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#eef4ff;--muted:#a9b9d8;--glass:rgba(255,255,255,.09);--glass2:rgba(255,255,255,.15);--line:rgba(255,255,255,.2);--pink:#ff9ecb;--yellow:#ffd86b;--mint:#7ef0c4;--sky:#7bd3ff;--violet:#b9a2ff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{font-family:"Prompt",Tahoma,"Noto Sans Thai",sans-serif;color:var(--ink);background:radial-gradient(circle at 20% 0%,#1b2f66 0,#0a1230 45%,#050914 100%);overflow:hidden}
+button{font:inherit;color:inherit}
+#app{display:flex;height:100vh;gap:14px;padding:14px}
+#stage{position:relative;flex:1 1 auto;min-width:0;border-radius:26px;overflow:hidden;background:#050c1f;border:1px solid var(--line);box-shadow:0 20px 60px #0009}
+#stage canvas.gl{display:block;width:100%;height:100%;touch-action:none;cursor:grab;outline:none}
+#stage canvas.gl:active{cursor:grabbing}
+.glass{background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);box-shadow:0 8px 30px #0006}
+.hud-title{position:absolute;left:16px;top:16px;display:flex;gap:12px;align-items:center;padding:10px 16px 10px 12px;border-radius:20px;z-index:6;max-width:calc(100% - 200px)}
+.hud-title .logo{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;font-size:26px;background:linear-gradient(135deg,var(--sky),var(--violet));box-shadow:0 6px 18px #7bd3ff55;animation:bob 3.2s ease-in-out infinite}
+.hud-title h1{margin:0;font-size:clamp(15px,2vw,20px);font-weight:700;line-height:1.25}
+.hud-title p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.hud-score{position:absolute;right:16px;top:16px;z-index:6;padding:8px 14px;border-radius:999px;display:flex;gap:10px;align-items:center;font-size:13px;font-weight:600}
+.hud-score .lvl{color:var(--mint)}
+.hud-score .stars{background:linear-gradient(135deg,var(--yellow),var(--pink));color:#3b2450;padding:3px 10px;border-radius:999px}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+#hotspots{position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden}
+.hotspot{position:absolute;left:0;top:0;border:0;background:none;padding:0;cursor:pointer;pointer-events:auto;will-change:transform;display:flex;flex-direction:column;align-items:center;gap:4px}
+.hs-dot{position:relative;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.75);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:transform .2s,background .2s;box-shadow:0 4px 14px #0007}
+.hs-dot::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(255,255,255,.7);animation:pulse 2s ease-out infinite}
+.hotspot:hover .hs-dot{transform:scale(1.18);background:rgba(255,216,107,.45)}
+.hs-tag{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;background:rgba(8,14,38,.72);border:1px solid var(--line);white-space:nowrap}
+#hotspots.notags .hs-tag{display:none}
+@keyframes pulse{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.7);opacity:0}}
+.info{position:absolute;left:16px;bottom:92px;width:min(370px,calc(100% - 32px));border-radius:22px;padding:16px 16px 14px;z-index:8;background:rgba(14,22,56,.72)}
+.info.hidden{display:none}
+.info.pop{animation:pop .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{0%{opacity:0;transform:translateY(18px) scale(.92)}100%{opacity:1;transform:none}}
+.info-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.info-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:24px;background:linear-gradient(135deg,var(--yellow),var(--pink))}
+.info-head h3{margin:0;font-size:17px;flex:1}
+.info-close{border:0;background:var(--glass2);width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:14px}
+.info-close:hover{background:rgba(255,255,255,.3)}
+.info p{margin:0 0 8px;font-size:13.5px;line-height:1.7;color:#e3ecff}
+.info ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.info li{font-size:12.5px;line-height:1.6;padding:7px 10px;border-radius:12px;background:rgba(126,240,196,.12);border:1px solid rgba(126,240,196,.28);color:#d9fff0}
+.info li::before{content:"💡 "}
+.dock{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:7;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:9px 12px;border-radius:22px;max-width:calc(100% - 24px)}
+.dbtn{border:1px solid var(--line);background:var(--glass);border-radius:14px;padding:8px 12px;cursor:pointer;font-size:13px;font-weight:500;transition:.2s;white-space:nowrap}
+.dbtn:hover{background:var(--glass2);transform:translateY(-1px)}
+.dbtn.active{background:linear-gradient(135deg,var(--sky),var(--violet));color:#0b1432;border-color:transparent;font-weight:700}
+.dbtn.play{background:linear-gradient(135deg,var(--yellow),var(--pink));color:#3b2450;font-weight:700;border-color:transparent;min-width:92px}
+.speed{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.speed input{width:84px;accent-color:var(--pink)}
+.toast{position:absolute;left:50%;top:78px;transform:translate(-50%,-20px);opacity:0;z-index:12;padding:10px 18px;border-radius:999px;font-weight:600;font-size:14px;background:linear-gradient(135deg,var(--yellow),var(--pink));color:#3b2450;pointer-events:none;transition:.4s cubic-bezier(.2,1.3,.4,1);box-shadow:0 10px 30px #0006;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.spark{position:absolute;z-index:11;font-size:22px;pointer-events:none;animation:rise 1.4s ease-out forwards}
+@keyframes rise{0%{opacity:1;transform:translateY(0) scale(.6) rotate(0)}100%{opacity:0;transform:translateY(-160px) scale(1.3) rotate(40deg)}}
+#loading{position:absolute;inset:0;z-index:20;display:grid;place-items:center;text-align:center;background:#050c1f;font-size:16px;line-height:1.8;transition:opacity .6s}
+#loading.done{opacity:0;pointer-events:none}
+#side{flex:0 0 410px;display:flex;flex-direction:column;min-height:0;border-radius:26px;overflow:hidden}
+.tabs{display:flex;gap:6px;padding:10px;border-bottom:1px solid var(--line)}
+.tab{flex:1;border:0;border-radius:14px;padding:10px 6px;background:transparent;cursor:pointer;font-weight:600;font-size:13.5px;color:var(--muted);transition:.2s}
+.tab.active{background:linear-gradient(135deg,var(--sky),var(--violet));color:#0b1432}
+.pane{display:none;padding:14px;overflow-y:auto;flex:1;min-height:0;animation:fade .35s ease}
+.pane.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pane::-webkit-scrollbar{width:8px}.pane::-webkit-scrollbar-thumb{background:rgba(255,255,255,.25);border-radius:8px}
+.card{background:var(--glass);border:1px solid var(--line);border-radius:20px;padding:14px;margin-bottom:12px}
+.card h4{margin:0 0 10px;font-size:14px;color:var(--yellow);display:flex;align-items:center;gap:6px}
+.live{display:flex;gap:14px;align-items:center}
+.live canvas{width:100px;height:100px;flex:0 0 100px;filter:drop-shadow(0 6px 14px #0008)}
+.live-text{font-size:12.5px;line-height:1.75;color:#dce8ff;min-width:0}
+.live-text b{color:#fff}
+.live-text .big{font-size:17px;font-weight:700;color:var(--mint)}
+.note{font-size:12.5px;line-height:1.7;margin-top:10px;padding:9px 12px;border-radius:14px;background:rgba(123,211,255,.12);border:1px solid rgba(123,211,255,.3);color:#d8f1ff}
+.sl{margin:12px 0}
+.sl label{display:flex;justify-content:space-between;font-size:13px;font-weight:600;margin-bottom:6px}
+.sl label span{color:var(--mint)}
+.sl input[type=range]{width:100%;accent-color:var(--pink);height:6px}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{border:1px solid var(--line);background:var(--glass);border-radius:14px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:500;transition:.2s;text-align:center}
+.chip:hover{background:var(--glass2);transform:translateY(-2px)}
+.toggles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tg{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;background:var(--glass);border:1px solid var(--line);font-size:12.5px;cursor:pointer;user-select:none}
+.tg input{accent-color:var(--pink);width:16px;height:16px}
+.mission{display:flex;gap:12px;align-items:center;padding:12px;border-radius:18px;margin-bottom:10px;background:var(--glass);border:1px solid var(--line);transition:.3s}
+.mission .mi{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:rgba(255,255,255,.12);flex:0 0 42px}
+.mission .mt{flex:1;min-width:0}
+.mission .mt b{display:block;font-size:14px}
+.mission .mt span{font-size:12px;color:var(--muted);line-height:1.5}
+.mission .ms{font-size:22px;filter:grayscale(1);opacity:.35;transition:.4s}
+.mission.done{background:linear-gradient(135deg,rgba(126,240,196,.2),rgba(123,211,255,.15));border-color:rgba(126,240,196,.5)}
+.mission.done .mi{background:linear-gradient(135deg,var(--mint),var(--sky))}
+.mission.done .ms{filter:none;opacity:1;transform:scale(1.2) rotate(12deg)}
+.prog{height:10px;border-radius:999px;background:rgba(255,255,255,.15);overflow:hidden;margin:6px 0 14px}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--yellow),var(--pink));border-radius:999px;transition:width .5s}
+.qq{font-size:15px;font-weight:600;line-height:1.6;margin:6px 0 12px}
+.opt{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--glass);border-radius:16px;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-size:13.5px;line-height:1.5;transition:.2s}
+.opt:hover:not(:disabled){background:var(--glass2);transform:translateX(4px)}
+.opt.ok{background:rgba(126,240,196,.25);border-color:var(--mint)}
+.opt.bad{background:rgba(255,120,150,.22);border-color:#ff7896}
+.opt:disabled{cursor:default}
+.fb{margin:10px 0;padding:11px 13px;border-radius:14px;font-size:13px;line-height:1.7;background:rgba(255,255,255,.1);animation:fade .3s}
+.btn{border:0;border-radius:14px;padding:11px 18px;cursor:pointer;font-weight:700;background:linear-gradient(135deg,var(--yellow),var(--pink));color:#3b2450;transition:.2s}
+.btn:hover{transform:translateY(-2px);box-shadow:0 8px 20px #0005}
+.result{text-align:center;padding:18px 8px}
+.result .em{font-size:56px;animation:bob 2.4s ease-in-out infinite}
+.result h3{margin:8px 0}
+.foot{text-align:center;font-size:11px;color:var(--muted);padding:6px 0 2px}
+@media(max-width:960px){
+ body{overflow:auto}
+ #app{flex-direction:column;height:auto;min-height:100vh;padding:10px}
+ #stage{flex:none;height:62vh;min-height:380px}
+ #side{flex:none;height:auto;max-height:none}
+ .pane{overflow:visible}
+ .hud-title p{display:none}
+ .hud-title{max-width:calc(100% - 150px)}
+ .info{bottom:120px}
+ .dock{gap:6px;padding:7px 8px}
+ .dbtn{padding:7px 9px;font-size:12px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+ <section id="stage">
+  <div class="hud-title glass">
+   <div class="logo">🌍</div>
+   <div><h1>สำรวจโลกและดวงจันทร์ 3D</h1><p>วิทยาศาสตร์ ม.3 • ลากเพื่อหมุน • เลื่อนล้อเพื่อซูม • คลิกจุดเรืองแสง</p></div>
+  </div>
+  <div class="hud-score glass"><span class="lvl" id="levelName">นักสำรวจใหม่</span><span class="stars">⭐ <b id="starCount">0</b>/<span id="starTotal">14</span></span></div>
+  <div id="hotspots"></div>
+  <div id="infoCard" class="info glass hidden">
+   <div class="info-head"><div class="info-icon" id="infoIcon">☀️</div><h3 id="infoTitle"></h3><button class="info-close" id="infoClose" aria-label="ปิด">✕</button></div>
+   <p id="infoText"></p>
+   <ul id="infoFacts"></ul>
+  </div>
+  <div class="dock glass">
+   <button class="dbtn play" id="playBtn">▶ เล่น</button>
+   <div class="speed"><span>ช้า</span><input type="range" id="speedRange" min="0.25" max="3" step="0.25" value="1" aria-label="ความเร็ว"><span>เร็ว</span></div>
+   <button class="dbtn active" data-view="overview">🔭 ภาพรวม</button>
+   <button class="dbtn" data-view="earth">🌍 โลก</button>
+   <button class="dbtn" data-view="moon">🌙 ดวงจันทร์</button>
+   <button class="dbtn" data-view="moonview">👀 มองจากโลก</button>
+   <button class="dbtn" id="resetBtn">↺ รีเซ็ต</button>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div id="loading">🌍 กำลังโหลดฉาก 3D …</div>
+ </section>
+ <aside id="side" class="glass">
+  <div class="tabs">
+   <button class="tab active" data-tab="lab">🎛️ ทดลอง</button>
+   <button class="tab" data-tab="mission">🎯 ภารกิจ</button>
+   <button class="tab" data-tab="quiz">📝 ควิซ</button>
+  </div>
+  <div class="pane active" id="pane-lab">
+   <div class="card">
+    <h4>📡 ข้อมูลสด</h4>
+    <div class="live">
+     <canvas id="moonCanvas" width="200" height="200"></canvas>
+     <div class="live-text">
+      <div class="big" id="rPhase">—</div>
+      <div>ส่วนสว่าง: <b id="rIllum">—</b> • อายุ: <b id="rAge">—</b></div>
+      <div>แนวเรียงตัว: <b id="rAlign">—</b></div>
+      <div>ประเทศไทย: <b id="rThai">—</b></div>
+     </div>
+    </div>
+    <div class="note" id="rSeason">—</div>
+    <div class="note" id="rEclipse" style="background:rgba(255,216,107,.12);border-color:rgba(255,216,107,.35);color:#fff1c4">—</div>
+   </div>
+   <div class="card">
+    <h4>🎚️ ปรับตำแหน่งเอง</h4>
+    <div class="sl"><label for="earthSlider">ตำแหน่งโลกในวงโคจร <span id="earthVal">0°</span></label><input type="range" id="earthSlider" min="0" max="359" value="150"></div>
+    <div class="sl"><label for="moonSlider">ตำแหน่งดวงจันทร์รอบโลก <span id="moonVal">0°</span></label><input type="range" id="moonSlider" min="0" max="359" value="100"></div>
+   </div>
+   <div class="card">
+    <h4>⚡ เลือกเหตุการณ์</h4>
+    <div class="chips" id="presets"></div>
+   </div>
+   <div class="card">
+    <h4>📚 สิ่งที่ควรรู้ (แตะเพื่ออ่าน)</h4>
+    <div class="chips" id="topics"></div>
+   </div>
+   <div class="card">
+    <h4>⚙️ การแสดงผล</h4>
+    <div class="toggles">
+     <label class="tg"><input type="checkbox" id="tOrbit" checked> วงโคจร</label>
+     <label class="tg"><input type="checkbox" id="tRays" checked> เส้นแสง/แนวเรียง</label>
+     <label class="tg"><input type="checkbox" id="tTags" checked> ป้ายชื่อจุดสำคัญ</label>
+     <label class="tg"><input type="checkbox" id="tCute" checked> หน้ายิ้มน่ารัก 😊</label>
+    </div>
+    <div class="note">ภาพจำลองเพื่อการเรียนรู้ ระยะและขนาดไม่เป็นสัดส่วนจริง และวงโคจรดวงจันทร์ถูกทำให้เอียงเกินจริง (จริงประมาณ 5°) เพื่อให้เห็นว่าทำไมไม่เกิดคราสทุกเดือน</div>
+   </div>
+   <div class="foot">สื่อประกอบการเรียนรู้วิทยาศาสตร์ ม.3 • ต้องเชื่อมต่ออินเทอร์เน็ตเพื่อโหลด Three.js</div>
+  </div>
+  <div class="pane" id="pane-mission">
+   <div class="card"><h4>🎯 ภารกิจนักสำรวจ</h4><div class="note" style="margin-top:0">ปรับตำแหน่งโลกและดวงจันทร์ให้ตรงเงื่อนไข ค้างไว้สักครู่เพื่อรับดาว ⭐</div><div class="prog" style="margin-top:12px"><i id="missionProg"></i></div></div>
+   <div id="missionList"></div>
+  </div>
+  <div class="pane" id="pane-quiz">
+   <div class="card" id="quizBox"></div>
+  </div>
+ </aside>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+var $=function(id){return document.getElementById(id)};
+var loadingEl=$('loading');
+if(typeof THREE==='undefined'||!THREE.OrbitControls){
+ loadingEl.innerHTML='ไม่สามารถโหลดไลบรารี Three.js ได้<br>กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้านี้';
+ return;
+}
+var TAU=Math.PI*2,D2R=Math.PI/180;
+var CFG={sunR:5,orbitR:50,earthR:2.4,moonR:0.85,moonD:11,tilt:23.5*D2R,moonTilt:30*D2R,umbra:1.83};
+var norm=function(a){return((a%360)+360)%360};
+var angDiff=function(a,b){return Math.abs(((a-b+540)%360)-180)};
+var ease=function(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2};
+var clamp=function(v,a,b){return Math.max(a,Math.min(b,v))};
+var state={e:150,m:100,playing:false,speed:1,view:'overview',cute:true};
+var tweenAnim=null,camTween=null,live={m:100,e:150,dec:0,ecl:null,thaiDay:true,age:0,illum:0};
+
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+var stage=$('stage');
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.domElement.className='gl';
+stage.insertBefore(renderer.domElement,stage.firstChild);
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x040a1c);
+var camera=new THREE.PerspectiveCamera(45,1,0.4,3000);
+camera.position.set(0,70,115);
+var controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;
+controls.dampingFactor=0.07;
+controls.minDistance=5;
+controls.maxDistance=320;
+controls.rotateSpeed=0.8;
+controls.zoomSpeed=0.9;
+controls.panSpeed=0.8;
+controls.screenSpacePanning=true;
+controls.target.set(0,0,0);
+controls.addEventListener('start',function(){camTween=null});
+
+function tex(canvas){var t=new THREE.CanvasTexture(canvas);t.encoding=THREE.sRGBEncoding;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t}
+
+function glowTexture(inner,outer){
+ var c=document.createElement('canvas');c.width=c.height=256;
+ var g=c.getContext('2d');
+ var gr=g.createRadialGradient(128,128,0,128,128,128);
+ gr.addColorStop(0,inner);gr.addColorStop(.35,outer);gr.addColorStop(1,'rgba(0,0,0,0)');
+ g.fillStyle=gr;g.fillRect(0,0,256,256);
+ return new THREE.CanvasTexture(c);
+}
+
+function drawFace(g,cx,cy,k,dark,cheek){
+ g.save();
+ g.fillStyle=dark;
+ g.beginPath();g.ellipse(cx-48*k,cy-14*k,9*k,13*k,0,0,TAU);g.fill();
+ g.beginPath();g.ellipse(cx+48*k,cy-14*k,9*k,13*k,0,0,TAU);g.fill();
+ g.fillStyle='#ffffff';
+ g.beginPath();g.arc(cx-45*k,cy-19*k,3.6*k,0,TAU);g.fill();
+ g.beginPath();g.arc(cx+51*k,cy-19*k,3.6*k,0,TAU);g.fill();
+ g.fillStyle=cheek;
+ g.beginPath();g.ellipse(cx-80*k,cy+20*k,17*k,11*k,0,0,TAU);g.fill();
+ g.beginPath();g.ellipse(cx+80*k,cy+20*k,17*k,11*k,0,0,TAU);g.fill();
+ g.strokeStyle=dark;g.lineWidth=6*k;g.lineCap='round';
+ g.beginPath();g.arc(cx,cy+8*k,24*k,0.15*Math.PI,0.85*Math.PI);g.stroke();
+ g.restore();
+}
+
+function makeEarthTexture(){
+ var W=2048,H=1024,c=document.createElement('canvas');c.width=W;c.height=H;
+ var g=c.getContext('2d'),r=rng(7);
+ var grad=g.createLinearGradient(0,0,0,H);
+ grad.addColorStop(0,'#3a8be0');grad.addColorStop(.5,'#2578d8');grad.addColorStop(1,'#3a8be0');
+ g.fillStyle=grad;g.fillRect(0,0,W,H);
+ g.fillStyle='#ffffff';
+ for(var i=0;i<420;i++){g.globalAlpha=.07+r()*.08;g.beginPath();g.ellipse(r()*W,r()*H,10+r()*46,2+r()*5,0,0,TAU);g.fill()}
+ g.globalAlpha=1;
+ var P=function(lon,lat){return[(lon+180)/360*W,(90-lat)/180*H]};
+ function path(pts){g.beginPath();pts.forEach(function(p,i){var q=P(p[0],p[1]);if(i){g.lineTo(q[0],q[1])}else{g.moveTo(q[0],q[1])}});g.closePath()}
+ function land(pts,fill){
+  path(pts);g.lineJoin='round';g.lineWidth=34;g.strokeStyle='rgba(140,220,255,.38)';g.stroke();
+  path(pts);g.fillStyle=fill||'#72cf6a';g.fill();g.lineWidth=6;g.strokeStyle='#4aae57';g.stroke();
+ }
+ function isle(lon,lat,rx,ry,rot){
+  var q=P(lon,lat);
+  g.beginPath();g.ellipse(q[0],q[1],rx/360*W,ry/180*H,rot||0,0,TAU);
+  g.lineWidth=22;g.strokeStyle='rgba(140,220,255,.38)';g.stroke();
+  g.fillStyle='#72cf6a';g.fill();g.lineWidth=5;g.strokeStyle='#4aae57';g.stroke();
+ }
+ function patch(lon,lat,rx,ry,col,al,rot){
+  var q=P(lon,lat);g.globalAlpha=al;g.fillStyle=col;
+  g.beginPath();g.ellipse(q[0],q[1],rx/360*W,ry/180*H,rot||0,0,TAU);g.fill();g.globalAlpha=1;
+ }
+ land([[-165,62],[-150,70],[-125,70],[-100,72],[-80,72],[-65,60],[-56,52],[-66,45],[-75,38],[-81,31],[-80,25],[-90,29],[-97,26],[-97,19],[-90,21],[-87,15],[-83,10],[-78,8],[-80,7],[-86,11],[-92,14],[-105,20],[-112,28],[-117,32],[-124,40],[-125,49],[-135,56],[-150,59]]);
+ land([[-78,8],[-72,12],[-62,10],[-52,5],[-35,-5],[-39,-15],[-48,-26],[-58,-36],[-65,-42],[-68,-52],[-74,-52],[-73,-40],[-71,-30],[-70,-18],[-76,-14],[-81,-5],[-80,0],[-77,4]]);
+ land([[-17,21],[-10,30],[-6,36],[10,37],[22,33],[32,31],[34,28],[43,12],[51,11],[40,-3],[40,-15],[35,-24],[32,-29],[20,-35],[17,-30],[12,-17],[9,-1],[9,4],[-8,4],[-17,14]]);
+ land([[-9,37],[-9,43],[-2,48],[5,52],[10,57],[5,62],[15,69],[30,71],[60,70],[80,73],[110,77],[140,72],[170,70],[180,66],[165,60],[160,52],[142,46],[135,35],[128,38],[122,40],[122,30],[120,24],[108,21],[106,10],[105,9],[101,13],[100,9],[103.5,1.5],[101,2.5],[98.5,8],[98,16],[92,22],[88,22],[80,15],[77,8],[73,18],[67,25],[57,25],[56,27],[48,30],[50,26],[56,24],[59,22],[52,16],[43,13],[35,28],[35,35],[27,37],[27,41],[12,44],[16,40],[8,44],[3,43],[-1,37]]);
+ land([[114,-22],[122,-18],[130,-12],[137,-12],[142,-11],[146,-19],[153,-27],[150,-37],[141,-38],[131,-31],[115,-34]]);
+ land([[-55,60],[-45,60],[-20,70],[-20,80],[-45,83],[-68,80],[-72,76],[-58,75]],'#f4fbff');
+ isle(138,36,3,5,.5);isle(-2,54,2.5,4,0);isle(-19,65,4,2,0);isle(101,-1,6,2,-.7);isle(114,0,5,4,0);isle(110,-7.5,5,1.2,0);isle(122,12,2,4,0);isle(172,-42,2.5,4,.5);isle(47,-19,2,6,.3);isle(120,-3,3,3,0);isle(141,-5,6,1.8,.2);
+ patch(10,22,22,7,'#e9d08c',.85,0);patch(45,24,10,7,'#e9d08c',.85,.4);patch(134,-25,12,7,'#e9d08c',.8,0);patch(105,42,13,4,'#e9d08c',.7,0);
+ patch(-60,-5,14,9,'#3f9e4f',.7,0);patch(25,0,10,7,'#3f9e4f',.65,0);patch(60,58,35,7,'#3f9e4f',.55,0);patch(-100,48,22,8,'#3f9e4f',.55,0);patch(103,13,5,6,'#3f9e4f',.7,0);
+ g.fillStyle='#f5fbff';
+ g.beginPath();g.moveTo(0,H);
+ for(var lo=-180;lo<=180;lo+=6){var q=P(lo,-70+r()*4);g.lineTo(q[0],q[1])}
+ g.lineTo(W,H);g.closePath();g.fill();
+ var ag=g.createLinearGradient(0,0,0,H*.1);ag.addColorStop(0,'rgba(245,251,255,.95)');ag.addColorStop(1,'rgba(245,251,255,0)');
+ g.fillStyle=ag;g.fillRect(0,0,W,H*.1);
+ return tex(c);
+}
+
+function makeCloudTexture(){
+ var c=document.createElement('canvas');c.width=1024;c.height=512;
+ var g=c.getContext('2d'),r=rng(21);
+ g.shadowColor='rgba(255,255,255,.9)';g.shadowBlur=18;
+ for(var i=0;i<150;i++){
+  var x=r()*1024,y=40+r()*430,n=3+Math.floor(r()*4);
+  g.fillStyle='rgba(255,255,255,'+(.5+r()*.35)+')';
+  for(var j=0;j<n;j++){g.beginPath();g.ellipse(x+j*14+r()*8,y+r()*8,12+r()*20,6+r()*8,0,0,TAU);g.fill()}
+ }
+ return tex(c);
+}
+
+function makeMoonTexture(cute){
+ var W=1024,H=512,c=document.createElement('canvas');c.width=W;c.height=H;
+ var g=c.getContext('2d'),r=rng(33);
+ g.fillStyle='#d9dbe2';g.fillRect(0,0,W,H);
+ for(var i=0;i<9;i++){g.globalAlpha=.35;g.fillStyle='#aab0bf';g.beginPath();g.ellipse(r()*W,60+r()*390,30+r()*70,20+r()*40,r()*3,0,TAU);g.fill()}
+ g.globalAlpha=1;
+ for(var k=0;k<110;k++){
+  var x=r()*W,y=r()*H,rad=4+r()*24;
+  var gr=g.createRadialGradient(x,y,rad*.2,x,y,rad);
+  gr.addColorStop(0,'rgba(120,128,146,.55)');gr.addColorStop(.8,'rgba(150,158,172,.35)');gr.addColorStop(1,'rgba(245,247,252,.65)');
+  g.fillStyle=gr;g.beginPath();g.arc(x,y,rad,0,TAU);g.fill();
+ }
+ if(cute){
+  g.globalAlpha=.55;g.fillStyle='#e9ebf0';g.beginPath();g.ellipse(W*.25,H*.5,125,95,0,0,TAU);g.fill();g.globalAlpha=1;
+  drawFace(g,W*.25,H*.5,1.05,'#4a3a5c','rgba(255,130,160,.6)');
+ }
+ return tex(c);
+}
+
+function makeSunFace(){
+ var c=document.createElement('canvas');c.width=c.height=256;
+ var g=c.getContext('2d');
+ drawFace(g,128,128,1.0,'#8a3c10','rgba(255,110,90,.55)');
+ return new THREE.CanvasTexture(c);
+}
+
+var sunGroup=new THREE.Group();
+scene.add(sunGroup);
+var sunTex=(function(){
+ var c=document.createElement('canvas');c.width=512;c.height=256;
+ var g=c.getContext('2d'),r=rng(5);
+ var gr=g.createLinearGradient(0,0,0,256);gr.addColorStop(0,'#ffd34d');gr.addColorStop(.5,'#ffb52e');gr.addColorStop(1,'#ffd34d');
+ g.fillStyle=gr;g.fillRect(0,0,512,256);
+ for(var i=0;i<60;i++){g.globalAlpha=.18;g.fillStyle=r()>.5?'#ff8a1f':'#fff2a8';g.beginPath();g.ellipse(r()*512,r()*256,10+r()*30,5+r()*10,0,0,TAU);g.fill()}
+ return tex(c);
+})();
+var sunMesh=new THREE.Mesh(new THREE.SphereGeometry(CFG.sunR,64,64),new THREE.MeshBasicMaterial({map:sunTex}));
+sunGroup.add(sunMesh);
+var glow1=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,236,150,.95)','rgba(255,160,60,.45)'),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+glow1.scale.set(30,30,1);sunGroup.add(glow1);
+var glow2=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(255,200,100,.35)','rgba(255,120,60,.14)'),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+glow2.scale.set(64,64,1);sunGroup.add(glow2);
+var sunFace=new THREE.Sprite(new THREE.SpriteMaterial({map:makeSunFace(),transparent:true,depthTest:false}));
+sunFace.scale.set(CFG.sunR*1.7,CFG.sunR*1.7,1);sunFace.renderOrder=20;sunGroup.add(sunFace);
+
+var ambient=new THREE.AmbientLight(0x7a92c8,0.3);
+scene.add(ambient);
+var sunLight=new THREE.PointLight(0xfff1d6,1.55,0,0);
+sunLight.castShadow=true;
+sunLight.shadow.mapSize.set(2048,2048);
+sunLight.shadow.camera.near=2;
+sunLight.shadow.camera.far=160;
+sunLight.shadow.bias=-0.0004;
+sunLight.shadow.normalBias=0.06;
+sunLight.shadow.radius=3;
+scene.add(sunLight);
+
+var earthPivot=new THREE.Group();
+scene.add(earthPivot);
+var tiltGroup=new THREE.Group();
+tiltGroup.rotation.z=-CFG.tilt;
+earthPivot.add(tiltGroup);
+var earthMat=new THREE.MeshStandardMaterial({map:makeEarthTexture(),roughness:.85,metalness:0});
+var earthMesh=new THREE.Mesh(new THREE.SphereGeometry(CFG.earthR,64,64),earthMat);
+earthMesh.castShadow=true;earthMesh.receiveShadow=true;
+tiltGroup.add(earthMesh);
+var cloudMesh=new THREE.Mesh(new THREE.SphereGeometry(CFG.earthR*1.025,48,48),new THREE.MeshStandardMaterial({map:makeCloudTexture(),transparent:true,opacity:.6,depthWrite:false,roughness:1}));
+tiltGroup.add(cloudMesh);
+var atmoSprite=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture('rgba(120,200,255,.0)','rgba(110,190,255,.5)'),blending:THREE.AdditiveBlending,transparent:true,depthWrite:false}));
+atmoSprite.scale.set(CFG.earthR*3.6,CFG.earthR*3.6,1);
+earthPivot.add(atmoSprite);
+var axisLen=CFG.earthR+1.7;
+var axisMesh=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,axisLen*2,12),new THREE.MeshBasicMaterial({color:0xffe66d}));
+tiltGroup.add(axisMesh);
+var poleN=new THREE.Mesh(new THREE.ConeGeometry(.2,.55,16),new THREE.MeshBasicMaterial({color:0xff6b8b}));
+poleN.position.y=axisLen+.2;tiltGroup.add(poleN);
+var poleS=new THREE.Mesh(new THREE.ConeGeometry(.2,.55,16),new THREE.MeshBasicMaterial({color:0x7bd3ff}));
+poleS.position.y=-axisLen-.2;poleS.rotation.x=Math.PI;tiltGroup.add(poleS);
+var equator=new THREE.Mesh(new THREE.TorusGeometry(CFG.earthR+.06,.025,8,96),new THREE.MeshBasicMaterial({color:0x7ef0c4,transparent:true,opacity:.75}));
+equator.rotation.x=Math.PI/2;tiltGroup.add(equator);
+var vertGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-axisLen-1,0),new THREE.Vector3(0,axisLen+1.2,0)]);
+var vertLine=new THREE.Line(vertGeo,new THREE.LineDashedMaterial({color:0xaab8d8,dashSize:.35,gapSize:.3,transparent:true,opacity:.7}));
+vertLine.computeLineDistances();
+earthPivot.add(vertLine);
+
+function lonLatVec(lon,lat,rad){
+ var phi=((lon+180)/360)*TAU,la=lat*D2R;
+ return new THREE.Vector3(-Math.cos(phi)*Math.cos(la)*rad,Math.sin(la)*rad,Math.sin(phi)*Math.cos(la)*rad);
+}
+var pin=new THREE.Group();
+pin.position.copy(lonLatVec(100.5,14,CFG.earthR));
+var pinHead=new THREE.Mesh(new THREE.SphereGeometry(.14,16,16),new THREE.MeshBasicMaterial({color:0xff3b5c}));
+pin.add(pinHead);
+earthMesh.add(pin);
+
+var moonGroup=new THREE.Group();
+scene.add(moonGroup);
+var moonTexPlain=makeMoonTexture(false),moonTexCute=makeMoonTexture(true);
+var moonMat=new THREE.MeshStandardMaterial({map:moonTexCute,roughness:1,metalness:0,emissive:new THREE.Color(0,0,0)});
+var moonMesh=new THREE.Mesh(new THREE.SphereGeometry(CFG.moonR,48,48),moonMat);
+moonMesh.castShadow=true;moonMesh.receiveShadow=true;
+moonGroup.add(moonMesh);
+
+(function(){
+ var n=3200,pos=new Float32Array(n*3),col=new Float32Array(n*3),r=rng(99);
+ for(var i=0;i<n;i++){
+  var u=r()*2-1,t=r()*TAU,s=Math.sqrt(1-u*u),d=800+r()*500;
+  pos[i*3]=s*Math.cos(t)*d;pos[i*3+1]=u*d;pos[i*3+2]=s*Math.sin(t)*d;
+  var k=r(),c=k<.6?[1,1,1]:k<.8?[.75,.85,1]:k<.93?[1,.92,.75]:[1,.75,.9];
+  col[i*3]=c[0];col[i*3+1]=c[1];col[i*3+2]=c[2];
+ }
+ var g=new THREE.BufferGeometry();
+ g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+ g.setAttribute('color',new THREE.BufferAttribute(col,3));
+ scene.add(new THREE.Points(g,new THREE.PointsMaterial({size:2,sizeAttenuation:false,vertexColors:true,transparent:true,opacity:.9,depthWrite:false})));
+})();
+
+function dashedLine(color,op,dash,gap,n){
+ var geo=new THREE.BufferGeometry();
+ var arr=new Float32Array(n*3);
+ var attr=new THREE.BufferAttribute(arr,3);
+ attr.setUsage(THREE.DynamicDrawUsage);
+ geo.setAttribute('position',attr);
+ var l=new THREE.Line(geo,new THREE.LineDashedMaterial({color:color,transparent:true,opacity:op,dashSize:dash,gapSize:gap}));
+ l.frustumCulled=false;
+ return l;
+}
+var ORB_N=160,MOON_N=96;
+var earthOrbitLine=dashedLine(0x9bb8e2,.75,1.4,1.2,ORB_N+1);
+(function(){
+ var a=earthOrbitLine.geometry.attributes.position.array;
+ for(var i=0;i<=ORB_N;i++){var t=i/ORB_N*TAU;a[i*3]=CFG.orbitR*Math.cos(t);a[i*3+1]=0;a[i*3+2]=CFG.orbitR*Math.sin(t)}
+ earthOrbitLine.geometry.attributes.position.needsUpdate=true;
+ earthOrbitLine.computeLineDistances();
+})();
+scene.add(earthOrbitLine);
+var moonOrbitLine=dashedLine(0xdfe8ff,.8,.5,.45,MOON_N+1);
+scene.add(moonOrbitLine);
+var rayLine=dashedLine(0xffd166,.85,1,.8,2);
+scene.add(rayLine);
+var emLine=dashedLine(0xffffff,.55,.4,.35,2);
+scene.add(emLine);
+
+var axisDir=new THREE.Vector3(Math.sin(CFG.tilt),Math.cos(CFG.tilt),0);
+var ep=new THREE.Vector3(),mp=new THREE.Vector3(),uVec=new THREE.Vector3(),pinWorld=new THREE.Vector3();
+
+function moonRel(er,mr){
+ var ux=-Math.cos(er),uz=-Math.sin(er),c=Math.cos(mr),s=Math.sin(mr);
+ var ox=ux*c-uz*s,oz=ux*s+uz*c,D=CFG.moonD;
+ return new THREE.Vector3(ox*D,-oz*Math.sin(CFG.moonTilt)*D,oz*Math.cos(CFG.moonTilt)*D);
+}
+
+var hsDefs=[
+ {k:'sun',icon:'☀️',tag:'ดวงอาทิตย์',pos:function(){return new THREE.Vector3(0,CFG.sunR+2.4,0)}},
+ {k:'earth',icon:'🌍',tag:'โลก',pos:function(){return ep.clone().add(new THREE.Vector3(0,-(CFG.earthR+1.5),0))}},
+ {k:'axis',icon:'🧭',tag:'แกนโลกเอียง 23.5°',pos:function(){return ep.clone().add(axisDir.clone().multiplyScalar(CFG.earthR+2.2))}},
+ {k:'moon',icon:'🌙',tag:'ดวงจันทร์',pos:function(){return mp.clone().add(new THREE.Vector3(0,CFG.moonR+0.9,0))}},
+ {k:'thai',icon:'📍',tag:'ประเทศไทย',pos:function(){var n=pinWorld.clone().sub(ep).normalize();return ep.clone().add(n.multiplyScalar(CFG.earthR+0.7))}}
+];
+var hsWrap=$('hotspots');
+hsDefs.forEach(function(h){
+ var b=document.createElement('button');
+ b.className='hotspot';b.type='button';b.setAttribute('aria-label',h.tag);
+ b.innerHTML='<span class="hs-dot">'+h.icon+'</span><span class="hs-tag">'+h.tag+'</span>';
+ b.addEventListener('click',function(ev){ev.stopPropagation();openHotspot(h.k)});
+ hsWrap.appendChild(b);h.el=b;
+});
+
+var infos={
+ sun:{icon:'☀️',title:'ดวงอาทิตย์',text:'ดาวฤกษ์ที่เป็นศูนย์กลางของระบบสุริยะ เป็นแหล่งกำเนิดแสงและความร้อนของโลก และมีมวลมากกว่า 99% ของมวลทั้งหมดในระบบสุริยะ',facts:['เส้นผ่านศูนย์กลางประมาณ 109 เท่าของโลก','แสงจากดวงอาทิตย์เดินทางถึงโลกใช้เวลาประมาณ 8 นาที 20 วินาที','ดวงจันทร์และดาวเคราะห์ไม่มีแสงในตัวเอง เรามองเห็นเพราะสะท้อนแสงอาทิตย์']},
+ earth:{icon:'🌍',title:'โลก',text:'ดาวเคราะห์ที่เราอาศัยอยู่ หมุนรอบตัวเอง 1 รอบใช้เวลาประมาณ 24 ชั่วโมง ทำให้เกิดกลางวัน–กลางคืน และโคจรรอบดวงอาทิตย์ 1 รอบใช้เวลาประมาณ 365.25 วัน',facts:['ด้านที่หันเข้าหาดวงอาทิตย์เป็นกลางวัน ด้านตรงข้ามเป็นกลางคืน','โลกหมุนรอบตัวเองจากทิศตะวันตกไปทิศตะวันออก','ลองหาหมุดสีแดง 📍 ที่ประเทศไทย แล้วดูว่าตอนนี้เป็นกลางวันหรือกลางคืน']},
+ moon:{icon:'🌙',title:'ดวงจันทร์',text:'บริวารตามธรรมชาติของโลก ไม่มีแสงสว่างในตัวเอง เรามองเห็นเพราะสะท้อนแสงอาทิตย์ ใช้เวลาประมาณ 29.5 วันในการครบรอบข้างขึ้น–ข้างแรม',facts:['ดวงจันทร์หันด้านเดิมเข้าหาโลกเสมอ (ในแบบจำลองคือด้านที่มีหน้ายิ้ม)','ดวงจันทร์ไม่ได้เปลี่ยนรูปร่างจริง เราเห็นส่วนสว่างต่างกันตามตำแหน่ง','ครึ่งหนึ่งของดวงจันทร์ได้รับแสงอาทิตย์อยู่เสมอ']},
+ axis:{icon:'🧭',title:'แกนโลกเอียง 23.5°',text:'แกนหมุนของโลกเอียงทำมุมประมาณ 23.5° กับเส้นตั้งฉากของระนาบวงโคจร และชี้ไปทางเดิมเกือบตลอดการโคจร ทำให้แต่ละซีกโลกได้รับแสงตรงๆ ไม่เท่ากันในแต่ละช่วงปี',facts:['เส้นเหลือง = แกนโลก • วงสีเขียว = เส้นศูนย์สูตร • เส้นประเทา = แนวตั้งฉากกับระนาบวงโคจร','ซีกเหนือเอียงเข้าหาดวงอาทิตย์ → ฤดูร้อนของซีกเหนือ และฤดูหนาวของซีกใต้','ฤดูกาลไม่ได้เกิดจากโลกอยู่ใกล้หรือไกลดวงอาทิตย์']},
+ seasons:{icon:'🍂',title:'ฤดูกาล',text:'เกิดจากแกนโลกเอียงขณะโลกโคจรรอบดวงอาทิตย์ ทำให้มุมตกกระทบของแสงและช่วงเวลากลางวันของแต่ละซีกโลกเปลี่ยนไปตลอดปี',facts:['ลองเลื่อน “ตำแหน่งโลก” แล้วดูค่า “ดวงอาทิตย์ตั้งฉากที่ละติจูด” ในแผงข้อมูลสด','ครีษมายัน/เหมายัน คือช่วงที่แสงอาทิตย์ตั้งฉากที่ละติจูดประมาณ 23.5°','วิษุวัต คือช่วงที่แสงตั้งฉากบริเวณเส้นศูนย์สูตร กลางวันกลางคืนยาวใกล้เคียงกัน'],view:'earth'},
+ phases:{icon:'🌓',title:'ข้างขึ้น–ข้างแรม',text:'เกิดจากตำแหน่งสัมพันธ์ระหว่างดวงอาทิตย์ โลก และดวงจันทร์ ทำให้เรามองเห็นส่วนสว่างของดวงจันทร์ไม่เท่ากัน ครบรอบประมาณ 29.5 วัน',facts:['เดือนดับ: ดวงจันทร์อยู่ระหว่างดวงอาทิตย์กับโลก เห็นด้านมืด','วันเพ็ญ: โลกอยู่ระหว่างดวงอาทิตย์กับดวงจันทร์ เห็นด้านสว่างเต็มดวง','กด “👀 มองจากโลก” เพื่อดูรูปร่างดวงจันทร์แบบที่คนบนโลกเห็น'],view:'moonview'},
+ solar:{icon:'🌞',title:'สุริยุปราคา',text:'เกิดเมื่อดวงจันทร์อยู่ระหว่างดวงอาทิตย์กับโลกและบังดวงอาทิตย์ เงาของดวงจันทร์ทอดมาตกบนโลก เกิดได้เฉพาะช่วงเดือนดับที่เรียงตัวเป็นแนวเดียวกันพอดี',facts:['สังเกตจุดเงาของดวงจันทร์ที่ตกบนผิวโลก','ผู้ที่อยู่ในเงามืดจะเห็นดวงอาทิตย์ถูกบังมากที่สุด','ไม่เกิดทุกเดือน เพราะวงโคจรดวงจันทร์เอียงเมื่อเทียบกับวงโคจรโลก']},
+ lunar:{icon:'🌘',title:'จันทรุปราคา',text:'เกิดเมื่อโลกอยู่ระหว่างดวงอาทิตย์กับดวงจันทร์ และดวงจันทร์ผ่านเข้าไปในเงาของโลก เกิดได้เฉพาะช่วงวันเพ็ญที่เรียงตัวเป็นแนวเดียวกัน',facts:['ดวงจันทร์ในเงามืดมักเห็นเป็นสีแดงอมส้ม (ในแบบจำลองมีการปรับสีให้เห็นได้ชัด)','สังเกตได้จากทุกพื้นที่บนโลกที่ดวงจันทร์อยู่เหนือขอบฟ้า','ไม่เกิดทุกเดือน เพราะวงโคจรดวงจันทร์เอียง']}
+};
+var currentInfo=null;
+function renderInfo(key){
+ var d=infos[key];
+ if(key==='thai'){
+  d={icon:'📍',title:'ประเทศไทย',text:live.thaiDay?'ขณะนี้ประเทศไทยอยู่ด้านที่หันเข้าหาดวงอาทิตย์ จึงเป็นเวลากลางวัน ☀️':'ขณะนี้ประเทศไทยอยู่ด้านที่หันออกจากดวงอาทิตย์ จึงเป็นเวลากลางคืน 🌙',facts:['เมื่อโลกหมุนรอบตัวเอง ไทยจะเปลี่ยนจากกลางวันเป็นกลางคืนสลับกัน','ประเทศไทยอยู่ที่ละติจูดประมาณ 5°–20° เหนือ ใกล้เส้นศูนย์สูตร','ลองกดเล่น ▶ แล้วดูหมุดแดงเคลื่อนเข้าไปในด้านมืดและด้านสว่าง']};
+ }
+ $('infoIcon').textContent=d.icon;
+ $('infoTitle').textContent=d.title;
+ $('infoText').textContent=d.text;
+ $('infoFacts').innerHTML=d.facts.map(function(f){return'<li>'+f+'</li>'}).join('');
+}
+function showInfo(key){
+ currentInfo=key;
+ renderInfo(key);
+ var c=$('infoCard');
+ c.classList.remove('hidden','pop');
+ void c.offsetWidth;
+ c.classList.add('pop');
+ var d=infos[key];
+ if(d&&d.view){setView(d.view)}
+ if(key==='solar'){applyPreset({e:0,m:0,view:'earth'})}
+ if(key==='lunar'){applyPreset({e:0,m:180,view:'earth'})}
+}
+function openHotspot(k){
+ showInfo(k);
+ if(k==='sun'){setView('overview')}
+ if(k==='earth'||k==='axis'||k==='thai'){setView('earth')}
+ if(k==='moon'){setView('moon')}
+}
+$('infoClose').addEventListener('click',function(){$('infoCard').classList.add('hidden');currentInfo=null});
+
+var presets=[
+ {n:'🌑 เดือนดับ',m:0},
+ {n:'🌓 ข้างขึ้นครึ่งดวง',m:90},
+ {n:'🌕 วันเพ็ญ',m:180},
+ {n:'🌗 ข้างแรมครึ่งดวง',m:270},
+ {n:'🌞 สุริยุปราคา',e:0,m:0,view:'earth',info:'solar'},
+ {n:'🌘 จันทรุปราคา',e:0,m:180,view:'earth',info:'lunar'},
+ {n:'☀️ ครีษมายัน (ซีกเหนือ)',e:180,view:'earth',info:'seasons'},
+ {n:'❄️ เหมายัน (ซีกเหนือ)',e:0,view:'earth'}
+];
+var presetsEl=$('presets');
+presets.forEach(function(p){
+ var b=document.createElement('button');b.className='chip';b.type='button';b.textContent=p.n;
+ b.addEventListener('click',function(){
+  applyPreset(p);
+  if(p.info&&p.info!=='solar'&&p.info!=='lunar'){showInfoOnly(p.info)}
+  if(p.info==='solar'||p.info==='lunar'){showInfoOnly(p.info)}
+ });
+ presetsEl.appendChild(b);
+});
+function showInfoOnly(key){
+ currentInfo=key;renderInfo(key);
+ var c=$('infoCard');c.classList.remove('hidden','pop');void c.offsetWidth;c.classList.add('pop');
+}
+var topicsEl=$('topics');
+[['🍂 ฤดูกาล','seasons'],['🌓 ข้างขึ้น–ข้างแรม','phases'],['🌞 สุริยุปราคา','solar'],['🌘 จันทรุปราคา','lunar'],['🧭 แกนโลกเอียง','axis'],['🌙 ดวงจันทร์','moon']].forEach(function(t){
+ var b=document.createElement('button');b.className='chip';b.type='button';b.textContent=t[0];
+ b.addEventListener('click',function(){showInfo(t[1])});
+ topicsEl.appendChild(b);
+});
+
+function applyPreset(p){
+ goTo(p.e===undefined?null:p.e,p.m===undefined?null:p.m);
+ if(p.view){setView(p.view)}
+}
+function goTo(e,m){
+ tweenAnim={t0:performance.now(),dur:1100,e0:state.e,m0:state.m,dE:e===null?0:((e-state.e+540)%360)-180,dM:m===null?0:((m-state.m+540)%360)-180};
+ state.playing=false;updatePlayBtn();
+}
+
+var earthSlider=$('earthSlider'),moonSlider=$('moonSlider');
+function syncSliders(){
+ earthSlider.value=Math.round(state.e)%360;moonSlider.value=Math.round(state.m)%360;
+ $('earthVal').textContent=(Math.round(state.e)%360)+'°';$('moonVal').textContent=(Math.round(state.m)%360)+'°';
+}
+earthSlider.addEventListener('input',function(){state.e=Number(earthSlider.value);tweenAnim=null;state.playing=false;updatePlayBtn();syncSliders()});
+moonSlider.addEventListener('input',function(){state.m=Number(moonSlider.value);tweenAnim=null;state.playing=false;updatePlayBtn();syncSliders()});
+
+function updatePlayBtn(){$('playBtn').textContent=state.playing?'⏸ หยุด':'▶ เล่น'}
+$('playBtn').addEventListener('click',function(){state.playing=!state.playing;tweenAnim=null;updatePlayBtn()});
+$('speedRange').addEventListener('input',function(e){state.speed=Number(e.target.value)});
+$('resetBtn').addEventListener('click',function(){state.playing=false;updatePlayBtn();goTo(150,100);setView('overview')});
+
+var viewBtns=document.querySelectorAll('[data-view]');
+viewBtns.forEach(function(b){b.addEventListener('click',function(){setView(b.dataset.view)})});
+
+function viewGoal(){
+ var up=new THREE.Vector3(0,1,0);
+ if(state.view==='overview'){
+  var a=camera.aspect,k=a<1.1?1.1/a:1;
+  return{p:new THREE.Vector3(0,72*k,118*k),t:new THREE.Vector3(0,0,0)};
+ }
+ var u=new THREE.Vector3(-Math.cos(state.e*D2R),0,-Math.sin(state.e*D2R));
+ var w=new THREE.Vector3().crossVectors(up,u).normalize();
+ var epp=new THREE.Vector3(CFG.orbitR*Math.cos(state.e*D2R),0,CFG.orbitR*Math.sin(state.e*D2R));
+ if(state.view==='earth'){
+  return{p:epp.clone().add(u.clone().multiplyScalar(15)).add(w.clone().multiplyScalar(17)).add(new THREE.Vector3(0,10,0)),t:epp.clone()};
+ }
+ var mpp=epp.clone().add(moonRel(state.e*D2R,state.m*D2R));
+ var toE=epp.clone().sub(mpp).normalize();
+ if(state.view==='moon'){
+  var side=new THREE.Vector3().crossVectors(up,toE).normalize();
+  return{p:mpp.clone().add(toE.clone().multiplyScalar(6.5)).add(side.multiplyScalar(2.6)).add(new THREE.Vector3(0,1.6,0)),t:mpp.clone()};
+ }
+ var dirEM=mpp.clone().sub(epp).normalize();
+ return{p:epp.clone().add(dirEM.clone().multiplyScalar(CFG.earthR+0.35)).add(new THREE.Vector3(0,0.5,0)),t:mpp.clone()};
+}
+function setView(v){
+ state.view=v;
+ viewBtns.forEach(function(b){b.classList.toggle('active',b.dataset.view===v)});
+ controls.enabled=v!=='moonview';
+ atmoSprite.visible=v!=='moonview';
+ camTween={p0:camera.position.clone(),t0:controls.target.clone(),start:performance.now(),dur:1200};
+}
+
+function updateCamera(now){
+ var g=viewGoal();
+ if(camTween){
+  var k=clamp((now-camTween.start)/camTween.dur,0,1),s=ease(k);
+  camera.position.lerpVectors(camTween.p0,g.p,s);
+  controls.target.lerpVectors(camTween.t0,g.t,s);
+  if(k>=1){camTween=null}
+  return;
+ }
+ if(state.view==='earth'||state.view==='moon'){
+  var d=g.t.clone().sub(controls.target);
+  camera.position.add(d);controls.target.copy(g.t);
+ }else if(state.view==='moonview'){
+  camera.position.copy(g.p);controls.target.copy(g.t);
+ }
+}
+
+function stepAnim(now,dt){
+ if(tweenAnim){
+  var k=clamp((now-tweenAnim.t0)/tweenAnim.dur,0,1),s=ease(k);
+  state.e=norm(tweenAnim.e0+tweenAnim.dE*s);
+  state.m=norm(tweenAnim.m0+tweenAnim.dM*s);
+  syncSliders();
+  if(k>=1){tweenAnim=null}
+ }else if(state.playing){
+  var rate=state.speed*40;
+  state.m=norm(state.m+rate*dt);
+  state.e=norm(state.e+rate*dt/12.37);
+  syncSliders();
+ }
+}
+
+function updateScene(dt){
+ var er=state.e*D2R,mr=state.m*D2R;
+ ep.set(CFG.orbitR*Math.cos(er),0,CFG.orbitR*Math.sin(er));
+ uVec.set(-Math.cos(er),0,-Math.sin(er));
+ var rel=moonRel(er,mr);
+ mp.copy(ep).add(rel);
+ earthPivot.position.copy(ep);
+ moonGroup.position.copy(mp);
+ moonGroup.lookAt(ep);
+ earthMesh.rotation.y+=dt*(state.playing?0.9+state.speed*0.6:0.5);
+ cloudMesh.rotation.y+=dt*0.06;
+ sunGroup.rotation.y+=dt*0.05;
+ glow1.material.rotation+=dt*0.05;
+ var pulse=1+Math.sin(performance.now()*0.002)*0.03;
+ glow1.scale.set(30*pulse,30*pulse,1);
+ earthMesh.updateMatrixWorld(true);
+ pin.getWorldPosition(pinWorld);
+ var a=moonOrbitLine.geometry.attributes.position.array;
+ for(var i=0;i<=MOON_N;i++){
+  var q=moonRel(er,i/MOON_N*TAU);
+  a[i*3]=ep.x+q.x;a[i*3+1]=ep.y+q.y;a[i*3+2]=ep.z+q.z;
+ }
+ moonOrbitLine.geometry.attributes.position.needsUpdate=true;
+ moonOrbitLine.computeLineDistances();
+ var r1=rayLine.geometry.attributes.position.array;
+ r1[0]=0;r1[1]=0;r1[2]=0;r1[3]=ep.x;r1[4]=ep.y;r1[5]=ep.z;
+ rayLine.geometry.attributes.position.needsUpdate=true;rayLine.computeLineDistances();
+ var r2=emLine.geometry.attributes.position.array;
+ r2[0]=ep.x;r2[1]=ep.y;r2[2]=ep.z;r2[3]=mp.x;r2[4]=mp.y;r2[5]=mp.z;
+ emLine.geometry.attributes.position.needsUpdate=true;emLine.computeLineDistances();
+
+ var along=rel.dot(uVec);
+ var perp=rel.clone().addScaledVector(uVec,-along).length();
+ var ecl=null,tint=0;
+ if(along>0){
+  if(perp<1.3){ecl={kind:'solar',deg:'total'}}
+  else if(perp<3.8){ecl={kind:'solar',deg:'partial'}}
+ }else{
+  if(perp<CFG.umbra-CFG.moonR){ecl={kind:'lunar',deg:'total'}}
+  else if(perp<CFG.umbra+CFG.moonR){ecl={kind:'lunar',deg:'partial'}}
+  tint=clamp((CFG.umbra+CFG.moonR-perp)/(2*CFG.moonR),0,1);
+ }
+ moonMat.emissive.setRGB(0.34*tint,0.07*tint,0.02*tint);
+ live.ecl=ecl;
+ live.m=state.m;live.e=state.e;
+ live.dec=Math.asin(-Math.sin(CFG.tilt)*Math.cos(er))/D2R;
+ var nrm=pinWorld.clone().sub(ep).normalize();
+ live.thaiDay=nrm.dot(uVec)>0.02;
+ live.age=state.m/360*29.53;
+ live.illum=(1-Math.cos(mr))/2*100;
+}
+
+function updateHotspots(){
+ var w=stage.clientWidth,h=stage.clientHeight,v=new THREE.Vector3();
+ var camToE=camera.position.clone().sub(ep).normalize();
+ var nrm=pinWorld.clone().sub(ep).normalize();
+ hsDefs.forEach(function(d){
+  var p=d.pos();
+  v.copy(p).project(camera);
+  var vis=v.z<1&&v.z>-1&&Math.abs(v.x)<1.1&&Math.abs(v.y)<1.1;
+  if(state.view==='moonview'&&d.k!=='moon'&&d.k!=='sun'){vis=false}
+  if(d.k==='thai'&&nrm.dot(camToE)<0.2){vis=false}
+  if(d.k==='thai'&&camera.position.distanceTo(ep)>60){vis=false}
+  d.el.style.display=vis?'flex':'none';
+  if(vis){d.el.style.transform='translate('+((v.x*.5+.5)*w)+'px,'+((-v.y*.5+.5)*h)+'px) translate(-50%,-50%)'}
+ });
+}
+
+var phaseNames=['เดือนดับ','เสี้ยวข้างขึ้น','ครึ่งดวงข้างขึ้น','เกือบเต็มดวง (ข้างขึ้น)','วันเพ็ญ','เกือบเต็มดวง (ข้างแรม)','ครึ่งดวงข้างแรม','เสี้ยวข้างแรม'];
+var phaseEmoji=['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+var alignNames=['ดวงอาทิตย์ – ดวงจันทร์ – โลก','ทำมุมระหว่างกัน','ทำมุมประมาณ 90°','ทำมุมระหว่างกัน','ดวงอาทิตย์ – โลก – ดวงจันทร์','ทำมุมระหว่างกัน','ทำมุมประมาณ 90°','ทำมุมระหว่างกัน'];
+function phaseIndex(m){return Math.floor(((m+22.5)%360)/45)}
+
+function seasonText(e){
+ var c=Math.cos(e*D2R);
+ if(c<-0.9){return'🌞 ใกล้ครีษมายัน (ราวเดือนมิถุนายน): ซีกโลกเหนือเอียงเข้าหาดวงอาทิตย์ → ฤดูร้อนของซีกเหนือ และฤดูหนาวของซีกใต้'}
+ if(c>0.9){return'❄️ ใกล้เหมายัน (ราวเดือนธันวาคม): ซีกโลกเหนือเอียงออกจากดวงอาทิตย์ → ฤดูหนาวของซีกเหนือ และฤดูร้อนของซีกใต้'}
+ if(Math.abs(c)<0.3){return'⚖️ ใกล้วิษุวัต (ราวเดือนมีนาคม/กันยายน): แสงตกใกล้เส้นศูนย์สูตร กลางวันกลางคืนยาวใกล้เคียงกัน'}
+ return'🍃 ช่วงเปลี่ยนฤดู: ปริมาณแสงของซีกเหนือและซีกใต้กำลังเปลี่ยนไปทีละน้อย'
+}
+
+var mc=$('moonCanvas'),mg=mc.getContext('2d');
+function drawMoonPhase(){
+ var W=mc.width,R=W*.4,cx=W/2,cy=W/2,m=live.m*D2R,s=Math.cos(m),waxing=live.m<180;
+ mg.clearRect(0,0,W,W);
+ mg.save();mg.translate(cx,cy);
+ mg.beginPath();mg.arc(0,0,R,0,TAU);mg.fillStyle='#1b2a4d';mg.fill();
+ mg.lineWidth=3;mg.strokeStyle='rgba(255,255,255,.35)';mg.stroke();
+ mg.save();
+ if(!waxing){mg.scale(-1,1)}
+ mg.beginPath();
+ mg.arc(0,0,R,-Math.PI/2,Math.PI/2,false);
+ mg.ellipse(0,0,Math.max(Math.abs(s)*R,0.001),R,0,Math.PI/2,-Math.PI/2,s>0);
+ mg.closePath();
+ var red=live.ecl&&live.ecl.kind==='lunar';
+ mg.fillStyle=red?'#ff9a6b':'#fff6d6';mg.fill();
+ mg.restore();
+ mg.beginPath();mg.arc(0,0,R,0,TAU);mg.lineWidth=3;mg.strokeStyle='rgba(255,255,255,.35)';mg.stroke();
+ mg.restore();
+}
+
+var lastEclKey='';
+function updateUI(){
+ var idx=phaseIndex(live.m);
+ $('rPhase').textContent=phaseEmoji[idx]+' '+phaseNames[idx];
+ $('rIllum').textContent=Math.round(live.illum)+'%';
+ $('rAge').textContent=live.age.toFixed(1)+' วัน';
+ $('rAlign').textContent=alignNames[idx];
+ $('rThai').textContent=live.thaiDay?'กลางวัน ☀️':'กลางคืน 🌙';
+ var dec=live.dec,hemi=dec>=0?'เหนือ':'ใต้';
+ $('rSeason').innerHTML=seasonText(live.e)+'<br><b>แสงอาทิตย์ตั้งฉากที่ละติจูด '+Math.abs(dec).toFixed(1)+'° '+hemi+'</b>';
+ var ecl=live.ecl,txt;
+ if(ecl&&ecl.kind==='solar'){txt='🌞 สุริยุปราคา'+(ecl.deg==='total'?' (ผู้ที่อยู่ในเงามืดเห็นดวงอาทิตย์ถูกบังเกือบหมด)':' บางส่วน (เงามัวของดวงจันทร์ตกบนโลก)')}
+ else if(ecl&&ecl.kind==='lunar'){txt='🌘 จันทรุปราคา'+(ecl.deg==='total'?'เต็มดวง (ดวงจันทร์อยู่ในเงามืดของโลก)':'บางส่วน (ดวงจันทร์ผ่านขอบเงามืดของโลก)')}
+ else if(angDiff(live.m,0)<12||angDiff(live.m,180)<12){txt='✨ เรียงตัวแล้วแต่ไม่ตรงแนว: วงโคจรดวงจันทร์เอียง ดวงจันทร์จึงอยู่เหนือหรือใต้เงา จึงไม่เกิดคราส'}
+ else{txt='🔎 ยังไม่เกิดคราส: คราสเกิดเฉพาะเดือนดับหรือวันเพ็ญที่เรียงตัวเป็นแนวเดียวกัน'}
+ $('rEclipse').textContent=txt;
+ drawMoonPhase();
+ if(currentInfo==='thai'){renderInfo('thai')}
+ checkMissions();
+}
+
+var missions=[
+ {id:'new',icon:'🌑',t:'จัดเดือนดับ',h:'ให้ดวงจันทร์อยู่ระหว่างดวงอาทิตย์กับโลก',test:function(){return angDiff(live.m,0)<10}},
+ {id:'first',icon:'🌓',t:'ข้างขึ้นครึ่งดวง',h:'ดวงจันทร์ทำมุม 90° และกำลังเพิ่มแสง',test:function(){return angDiff(live.m,90)<10}},
+ {id:'full',icon:'🌕',t:'จัดวันเพ็ญ',h:'ให้โลกอยู่ระหว่างดวงอาทิตย์กับดวงจันทร์',test:function(){return angDiff(live.m,180)<10}},
+ {id:'third',icon:'🌗',t:'ข้างแรมครึ่งดวง',h:'ดวงจันทร์ทำมุม 90° อีกด้านและแสงกำลังลดลง',test:function(){return angDiff(live.m,270)<10}},
+ {id:'solar',icon:'🌞',t:'พบสุริยุปราคา',h:'ต้องเป็นเดือนดับและเรียงตัวตรงแนวพอดี',test:function(){return live.ecl&&live.ecl.kind==='solar'}},
+ {id:'lunar',icon:'🌘',t:'พบจันทรุปราคา',h:'ต้องเป็นวันเพ็ญและดวงจันทร์เข้าเงาโลก',test:function(){return live.ecl&&live.ecl.kind==='lunar'}},
+ {id:'summer',icon:'☀️',t:'ครีษมายันซีกเหนือ',h:'หาตำแหน่งโลกที่แสงตั้งฉากเหนือเส้นศูนย์สูตรมากที่สุด',test:function(){return live.dec>=22}},
+ {id:'winter',icon:'❄️',t:'เหมายันซีกเหนือ',h:'หาตำแหน่งโลกที่แสงตั้งฉากใต้เส้นศูนย์สูตรมากที่สุด',test:function(){return live.dec<=-22}},
+ {id:'equinox',icon:'⚖️',t:'วิษุวัต',h:'หาตำแหน่งที่แสงตั้งฉากใกล้เส้นศูนย์สูตร',test:function(){return Math.abs(live.dec)<1.5}}
+];
+var QUIZ_TOTAL=5;
+var missionDone={},hitCount={},quizBest=0;
+var TOTAL_STARS=missions.length+QUIZ_TOTAL;
+$('starTotal').textContent=TOTAL_STARS;
+
+function renderMissions(){
+ var list=$('missionList');
+ list.innerHTML=missions.map(function(m){
+  return'<div class="mission'+(missionDone[m.id]?' done':'')+'"><div class="mi">'+m.icon+'</div><div class="mt"><b>'+m.t+'</b><span>'+m.h+'</span></div><div class="ms">⭐</div></div>';
+ }).join('');
+ var n=Object.keys(missionDone).length;
+ $('missionProg').style.width=(n/missions.length*100)+'%';
+}
+function updateScore(){
+ var n=Object.keys(missionDone).length+quizBest;
+ $('starCount').textContent=n;
+ var name='นักสำรวจใหม่';
+ if(n>=TOTAL_STARS){name='ปรมาจารย์จักรวาล 🏆'}
+ else if(n>=10){name='ผู้เชี่ยวชาญระบบสุริยะ 🚀'}
+ else if(n>=5){name='นักดาราศาสตร์น้อย 🔭'}
+ else if(n>=2){name='นักสำรวจฝึกหัด 🌠'}
+ $('levelName').textContent=name;
+}
+var toastTimer=null;
+function toast(msg){
+ var t=$('toast');t.textContent=msg;t.classList.add('show');
+ clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.classList.remove('show')},2600);
+}
+function confetti(){
+ var emojis=['⭐','✨','🌟','💫'];
+ for(var i=0;i<14;i++){
+  var s=document.createElement('span');s.className='spark';
+  s.textContent=emojis[i%emojis.length];
+  s.style.left=(20+Math.random()*60)+'%';s.style.top=(45+Math.random()*30)+'%';
+  s.style.animationDelay=(Math.random()*.3)+'s';
+  stage.appendChild(s);
+  setTimeout(function(el){return function(){el.remove()}}(s),1900);
+ }
+}
+function checkMissions(){
+ missions.forEach(function(m){
+  if(missionDone[m.id]){return}
+  if(m.test()){hitCount[m.id]=(hitCount[m.id]||0)+1}else{hitCount[m.id]=0}
+  if(hitCount[m.id]>=3){
+   missionDone[m.id]=true;
+   renderMissions();updateScore();
+   toast('🎉 ภารกิจสำเร็จ: '+m.t+' +1 ⭐');
+   confetti();
+  }
+ });
+}
+
+var quizData=[
+ {q:'สาเหตุหลักที่ทำให้เกิดฤดูกาลบนโลกคือข้อใด?',o:['โลกอยู่ใกล้ดวงอาทิตย์มากขึ้นในฤดูร้อน','แกนโลกเอียงขณะโลกโคจรรอบดวงอาทิตย์','ดวงจันทร์บังแสงอาทิตย์เป็นช่วง ๆ'],a:1,x:'แกนโลกเอียงขณะโลกโคจรรอบดวงอาทิตย์ ทำให้แต่ละซีกโลกได้รับแสงและมีช่วงกลางวันต่างกันในแต่ละช่วงปี'},
+ {q:'ข้างขึ้น–ข้างแรมเกิดจากอะไร?',o:['เงาโลกบังดวงจันทร์ทุกคืน','ดวงจันทร์เปลี่ยนรูปร่างจริงทุกวัน','เราเห็นส่วนสว่างของดวงจันทร์ต่างกันตามตำแหน่ง'],a:2,x:'ดวงจันทร์ไม่ได้เปลี่ยนรูปร่างจริง แต่เรามองเห็นส่วนที่ได้รับแสงอาทิตย์ต่างกันตามตำแหน่งสัมพันธ์ของดวงอาทิตย์ โลก และดวงจันทร์'},
+ {q:'จันทรุปราคาเกิดเมื่อวัตถุใดอยู่ตรงกลางระหว่างดวงอาทิตย์กับดวงจันทร์?',o:['โลก','ดาวศุกร์','ดาวอังคาร'],a:0,x:'โลกอยู่ระหว่างดวงอาทิตย์กับดวงจันทร์ และดวงจันทร์ผ่านเข้าไปในเงาของโลก'},
+ {q:'สุริยุปราคาเกิดในช่วงข้างขึ้นข้างแรมใด?',o:['เดือนดับ','วันเพ็ญ','ข้างขึ้นครึ่งดวง'],a:0,x:'สุริยุปราคาเกิดช่วงเดือนดับ เมื่อดวงจันทร์อยู่ระหว่างดวงอาทิตย์กับโลกและเรียงตัวตรงแนวพอดี'},
+ {q:'เหตุใดจึงไม่เกิดสุริยุปราคาและจันทรุปราคาทุกเดือน?',o:['เพราะดวงจันทร์โคจรช้ามาก','เพราะวงโคจรของดวงจันทร์เอียงเมื่อเทียบกับวงโคจรของโลก','เพราะโลกหยุดหมุนบางช่วง'],a:1,x:'วงโคจรของดวงจันทร์เอียงเล็กน้อย ดวงจันทร์จึงมักอยู่เหนือหรือใต้เงา คราสจึงเกิดเมื่อเรียงตัวตรงแนวพอดีเท่านั้น'}
+];
+var qi=0,qScore=0,qAnswered=false;
+function renderQuiz(){
+ var box=$('quizBox');
+ if(qi>=quizData.length){
+  if(qScore>quizBest){quizBest=qScore;updateScore()}
+  var em=qScore===QUIZ_TOTAL?'🏆':qScore>=3?'🎉':'💪';
+  var msg=qScore===QUIZ_TOTAL?'เก่งมาก! ตอบถูกทุกข้อ':qScore>=3?'ทำได้ดีมาก':'พยายามอีกนิด ลองทดลองในแบบจำลองแล้วทำใหม่นะ';
+  box.innerHTML='<div class="result"><div class="em">'+em+'</div><h3>คะแนน '+qScore+'/'+QUIZ_TOTAL+'</h3><p style="color:var(--muted);line-height:1.7">'+msg+'</p><button class="btn" id="qRestart">เริ่มทำใหม่</button></div>';
+  $('qRestart').addEventListener('click',function(){qi=0;qScore=0;qAnswered=false;renderQuiz()});
+  return;
+ }
+ var q=quizData[qi];
+ box.innerHTML='<h4>📝 ข้อ '+(qi+1)+' / '+quizData.length+'</h4><div class="prog"><i style="width:'+(qi/quizData.length*100)+'%"></i></div><div class="qq">'+q.q+'</div><div id="opts"></div><div id="qfb"></div>';
+ var opts=$('opts');
+ q.o.forEach(function(text,i){
+  var b=document.createElement('button');b.type='button';b.className='opt';b.textContent=String.fromCharCode(65+i)+'. '+text;
+  b.addEventListener('click',function(){answerQuiz(i)});
+  opts.appendChild(b);
+ });
+ qAnswered=false;
+}
+function answerQuiz(i){
+ if(qAnswered){return}
+ qAnswered=true;
+ var q=quizData[qi],btns=document.querySelectorAll('#opts .opt'),ok=i===q.a;
+ btns.forEach(function(b,k){b.disabled=true;if(k===q.a){b.classList.add('ok')}else if(k===i){b.classList.add('bad')}});
+ if(ok){qScore++}
+ var fb=$('qfb');
+ fb.innerHTML='<div class="fb">'+(ok?'✅ ถูกต้อง! ':'❌ ยังไม่ถูกต้อง ')+'เฉลย: '+q.x+'</div><button class="btn" id="qNext">'+(qi===quizData.length-1?'ดูคะแนน':'ข้อต่อไป ➜')+'</button>';
+ if(ok){toast('✨ ตอบถูก!')}
+ $('qNext').addEventListener('click',function(){qi++;renderQuiz()});
+}
+
+document.querySelectorAll('.tab').forEach(function(t){
+ t.addEventListener('click',function(){
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('active',x===t)});
+  document.querySelectorAll('.pane').forEach(function(p){p.classList.toggle('active',p.id==='pane-'+t.dataset.tab)});
+ });
+});
+
+$('tOrbit').addEventListener('change',function(e){earthOrbitLine.visible=moonOrbitLine.visible=e.target.checked});
+$('tRays').addEventListener('change',function(e){rayLine.visible=emLine.visible=e.target.checked});
+$('tTags').addEventListener('change',function(e){hsWrap.classList.toggle('notags',!e.target.checked)});
+$('tCute').addEventListener('change',function(e){
+ state.cute=e.target.checked;
+ moonMat.map=state.cute?moonTexCute:moonTexPlain;
+ moonMat.needsUpdate=true;
+ sunFace.visible=state.cute;
+});
+
+var raycaster=new THREE.Raycaster(),ptr=new THREE.Vector2(),downPos=null;
+renderer.domElement.addEventListener('pointerdown',function(e){downPos={x:e.clientX,y:e.clientY}});
+renderer.domElement.addEventListener('pointerup',function(e){
+ if(!downPos){return}
+ var dx=e.clientX-downPos.x,dy=e.clientY-downPos.y;downPos=null;
+ if(Math.sqrt(dx*dx+dy*dy)>5){return}
+ var r=renderer.domElement.getBoundingClientRect();
+ ptr.x=((e.clientX-r.left)/r.width)*2-1;ptr.y=-((e.clientY-r.top)/r.height)*2+1;
+ raycaster.setFromCamera(ptr,camera);
+ var hits=raycaster.intersectObjects([sunMesh,earthMesh,moonMesh],false);
+ if(hits.length){
+  var o=hits[0].object;
+  if(o===sunMesh){openHotspot('sun')}
+  else if(o===earthMesh){openHotspot('earth')}
+  else{openHotspot('moon')}
+ }
+});
+
+function resize(){
+ var w=stage.clientWidth,h=stage.clientHeight;
+ if(!w||!h){return}
+ renderer.setSize(w,h,false);
+ renderer.domElement.style.width='100%';renderer.domElement.style.height='100%';
+ camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+if(window.ResizeObserver){new ResizeObserver(resize).observe(stage)}
+window.addEventListener('resize',resize);
+resize();
+
+renderMissions();renderQuiz();updateScore();syncSliders();updatePlayBtn();
+var last=performance.now(),lastUI=0;
+function frame(now){
+ requestAnimationFrame(frame);
+ var dt=Math.min((now-last)/1000,0.1);last=now;
+ stepAnim(now,dt);
+ updateScene(dt);
+ updateCamera(now);
+ controls.update();
+ updateHotspots();
+ renderer.render(scene,camera);
+ if(now-lastUI>120){updateUI();lastUI=now}
+}
+updateScene(0);
+(function(){var g=viewGoal();camera.position.copy(g.p);controls.target.copy(g.t);controls.update()})();
+requestAnimationFrame(function(t){last=t;frame(t);loadingEl.classList.add('done');setTimeout(function(){loadingEl.style.display='none'},700)});
+})();
+</script>
+</body>
+</html>
